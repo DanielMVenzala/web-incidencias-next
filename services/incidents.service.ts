@@ -84,3 +84,39 @@ export async function downloadIncidentsExcel(filters?: IncidentsFilters): Promis
   link.remove();
   window.URL.revokeObjectURL(url);
 }
+
+/**
+ * Obtiene una incidencia por su ID (detalle completo).
+ */
+export async function getIncidentById(id: string): Promise<Incident> {
+  const { data } = await api.get<Incident>(`/incidents/${id}`);
+  return data;
+}
+
+/**
+ * Actualiza campos de una incidencia (estado, prioridad, etc.).
+ * Solo se envían los campos que se quieren modificar.
+ */
+export async function updateIncident(id: string, fields: Partial<Pick<Incident, 'estado' | 'prioridad'>>): Promise<Incident> {
+  const { data } = await api.patch<Incident>(`/incidents/${id}`, fields);
+  return data;
+}
+
+/**
+ * Añade un comentario a una incidencia.
+ * El backend espera { texto, usuario (email) }.
+ */
+export async function addComment(incidentId: string, texto: string, userEmail: string) {
+  const { data } = await api.post(`/incidents/${incidentId}/comments`, {
+    texto,
+    usuario: userEmail,
+  });
+  return data;
+}
+
+/**
+ * Elimina una incidencia (solo administradores).
+ */
+export async function deleteIncident(id: string): Promise<void> {
+  await api.delete(`/incidents/${id}`);
+}
