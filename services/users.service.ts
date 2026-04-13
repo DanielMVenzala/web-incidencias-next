@@ -65,6 +65,13 @@ export async function deleteUser(userId: string): Promise<void> {
 }
 
 /**
+ * Cambia el rol de un usuario (admin <-> usuario).
+ */
+export async function changeRole(userId: string, rol: 'admin' | 'usuario'): Promise<void> {
+  await api.patch(`/users/${userId}`, { rol });
+}
+
+/**
  * Descarga el informe Excel de usuarios.
  * El backend devuelve un archivo .xlsx que se descarga directamente.
  */
