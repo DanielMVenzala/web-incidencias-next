@@ -17,6 +17,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getIncidents, Incident } from '@/services/incidents.service';
+import { useToast } from '@/hooks/useToast';
+import { getErrorMessage } from '@/services/api';
 import StatsCard from '@/components/StatsCard';
 import StatusChart from '@/components/StatusChart';
 import PriorityChart from '@/components/PriorityChart';
@@ -81,6 +83,7 @@ function computeStats(incidents: Incident[]) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,9 +91,9 @@ export default function DashboardPage() {
   useEffect(() => {
     getIncidents()
       .then(setIncidents)
-      .catch(() => {})
+      .catch((err) => showToast(getErrorMessage(err, 'No se pudieron cargar las incidencias'), 'error'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [showToast]);
 
   if (loading) {
     return (

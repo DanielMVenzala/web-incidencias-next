@@ -20,6 +20,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getIncidents, updateIncident, downloadIncidentsExcel, Incident, IncidentsFilters } from '@/services/incidents.service';
+import { useToast } from '@/hooks/useToast';
+import { getErrorMessage } from '@/services/api';
 
 const PAGE_SIZE = 15;
 
@@ -46,6 +48,7 @@ interface PendingChange {
 
 export default function IncidentsPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -85,7 +88,11 @@ export default function IncidentsPage() {
           setHasMore(data.length === PAGE_SIZE);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!cancelled) {
+          showToast(getErrorMessage(err, 'No se pudieron cargar las incidencias'), 'error');
+        }
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -131,8 +138,9 @@ export default function IncidentsPage() {
         })
       );
       setPendingChanges({});
-    } catch {
-      // Error manejado por el interceptor
+      showToast('Cambios guardados correctamente', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudieron guardar los cambios'), 'error');
     } finally {
       setSaving(false);
     }
@@ -193,7 +201,13 @@ export default function IncidentsPage() {
             </button>
           )}
           <button
-            onClick={() => downloadIncidentsExcel(buildFilters())}
+            onClick={async () => {
+              try {
+                await downloadIncidentsExcel(buildFilters());
+              } catch (err) {
+                showToast(getErrorMessage(err, 'No se pudo descargar el Excel'), 'error');
+              }
+            }}
             className="flex items-center gap-2 bg-primary hover:bg-primary-light text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

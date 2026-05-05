@@ -21,6 +21,8 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getUsers, toggleBlock, changeRole, deleteUser, downloadUsersExcel, UserAdmin } from '@/services/users.service';
+import { useToast } from '@/hooks/useToast';
+import { getErrorMessage } from '@/services/api';
 
 // Cambios pendientes por usuario
 interface PendingUserChange {
@@ -30,6 +32,7 @@ interface PendingUserChange {
 }
 
 export default function UsersPage() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<UserAdmin[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,8 +53,8 @@ export default function UsersPage() {
     try {
       const data = await getUsers();
       setUsers(data);
-    } catch {
-      // Error manejado por el interceptor
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudieron cargar los usuarios'), 'error');
     } finally {
       setLoading(false);
     }
@@ -145,8 +148,9 @@ export default function UsersPage() {
           })
       );
       setPending({});
-    } catch {
-      // Error manejado por el interceptor
+      showToast('Cambios guardados correctamente', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudieron guardar los cambios'), 'error');
     } finally {
       setSaving(false);
     }
@@ -211,7 +215,13 @@ export default function UsersPage() {
             </>
           )}
           <button
-            onClick={downloadUsersExcel}
+            onClick={async () => {
+              try {
+                await downloadUsersExcel();
+              } catch (err) {
+                showToast(getErrorMessage(err, 'No se pudo descargar el Excel'), 'error');
+              }
+            }}
             className="flex items-center gap-2 bg-primary hover:bg-primary-light text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

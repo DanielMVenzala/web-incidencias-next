@@ -9,26 +9,25 @@
  *   guardado en las cookies y lo añade automáticamente a la cabecera
  *   Authorization. Así no hay que pasarlo manualmente en cada petición.
  *
- * - Interceptor de respuesta: si el backend devuelve un 401 (no autorizado),
- *   significa que el token ha expirado (caduca a los 15 minutos). En ese caso
- *   se borran las cookies y se redirige al login para que el usuario vuelva
- *   a autenticarse.
+ * - Interceptor de respuesta: traduce los errores de red a mensajes
+ *   legibles y los muestra en un toast. También captura el 401 (token
+ *   expirado) y redirige al login.
  *
- * Es el mismo patrón que usamos en Flutter con Dio interceptors.
+ * El timeout está fijado a 70 segundos porque el backend está en Render
+ * con el plan gratuito, que se "duerme" tras 15 min de inactividad y
+ * tarda hasta 60s en arrancar de nuevo (cold start).
  */
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import Cookies from 'js-cookie';
+import { getGlobalShowToast } from '@/hooks/useToast';
 
-// Se crea una instancia de Axios con la URL base de la API.
-// Todas las peticiones (get, post, patch, delete) usarán esta instancia.
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
+  timeout: 70000, // 70s para tolerar el cold start de Render
 });
 
-// INTERCEPTOR DE PETICIÓN
-// Se ejecuta automáticamente ANTES de cada petición HTTP.
-// Lee el token JWT de las cookies y lo inyecta en la cabecera Authorization.
+// INTERCEPTOR DE PETICIÓN — añade el JWT a cada llamada
 api.interceptors.request.use((config) => {
   const token = Cookies.get('access_token');
   if (token) {
@@ -37,22 +36,58 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// INTERCEPTOR DE RESPUESTA
-// Se ejecuta automáticamente DESPUÉS de cada respuesta HTTP.
-// Si el servidor devuelve 401 (token expirado o inválido),
-// limpia las cookies y redirige al login.
+// INTERCEPTOR DE RESPUESTA — gestiona errores globales
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => {
+    const showToast = getGlobalShowToast();
+
+    // 401: token expirado o inválido — limpiar sesión y redirigir
     if (error.response?.status === 401) {
       Cookies.remove('access_token');
       Cookies.remove('user_id');
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        showToast?.('Tu sesión ha expirado. Vuelve a iniciar sesión.', 'warning');
         window.location.href = '/login';
       }
+      return Promise.reject(error);
     }
+
+    // Error de red (sin respuesta del servidor): backend caído, sin internet, etc.
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        showToast?.('La petición ha tardado demasiado. Inténtalo de nuevo.', 'error');
+      } else {
+        showToast?.('No se pudo conectar con el servidor. Comprueba tu conexión.', 'error');
+      }
+      return Promise.reject(error);
+    }
+
+    // 5xx: error del servidor
+    if (error.response.status >= 500) {
+      showToast?.('Error en el servidor. Inténtalo más tarde.', 'error');
+      return Promise.reject(error);
+    }
+
+    // 4xx (excepto 401): error de validación o lógica de negocio
+    // No mostramos toast genérico aquí porque cada llamada decide su mensaje
     return Promise.reject(error);
   },
 );
+
+/**
+ * Extrae el mensaje de error de una respuesta del backend.
+ * El backend NestJS devuelve errores con la forma:
+ *   { message: "texto" | ["texto1", "texto2"], statusCode: 400 }
+ */
+export function getErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { message?: string | string[] } | undefined;
+    if (data?.message) {
+      return Array.isArray(data.message) ? data.message[0] : data.message;
+    }
+  }
+  return fallback;
+}
 
 export default api;

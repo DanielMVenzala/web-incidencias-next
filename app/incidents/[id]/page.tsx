@@ -27,11 +27,14 @@ import {
 import StatusBadge from '@/components/StatusBadge';
 import PriorityBadge from '@/components/PriorityBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/hooks/useToast';
+import { getErrorMessage } from '@/services/api';
 
 export default function IncidentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const id = params.id as string;
 
   const [incident, setIncident] = useState<Incident | null>(null);
@@ -61,7 +64,11 @@ export default function IncidentDetailPage() {
         setNewEstado(data.estado);
         setNewPrioridad(data.prioridad);
       })
-      .catch(() => setError('No se pudo cargar la incidencia'))
+      .catch((err) => {
+        const msg = getErrorMessage(err, 'No se pudo cargar la incidencia');
+        setError(msg);
+        showToast(msg, 'error');
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -77,9 +84,10 @@ export default function IncidentDetailPage() {
       if (Object.keys(fields).length > 0) {
         const updated = await updateIncident(id, fields);
         setIncident(updated);
+        showToast('Incidencia actualizada correctamente', 'success');
       }
-    } catch {
-      // Error manejado por el interceptor
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudo actualizar la incidencia'), 'error');
     } finally {
       setSaving(false);
     }
@@ -96,8 +104,9 @@ export default function IncidentDetailPage() {
         prev ? { ...prev, comentarios: [...prev.comentarios, newComment] } : prev
       );
       setCommentText('');
-    } catch {
-      // Error manejado por el interceptor
+      showToast('Comentario añadido', 'success');
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudo añadir el comentario'), 'error');
     } finally {
       setAddingComment(false);
     }
@@ -107,9 +116,10 @@ export default function IncidentDetailPage() {
   async function handleDelete() {
     try {
       await deleteIncident(id);
+      showToast('Incidencia eliminada', 'success');
       router.push('/incidents');
-    } catch {
-      // Error manejado por el interceptor
+    } catch (err) {
+      showToast(getErrorMessage(err, 'No se pudo eliminar la incidencia'), 'error');
     }
   }
 
