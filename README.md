@@ -1,8 +1,4 @@
-<!--
-======================================================================
-VERSIÓN EN ESPAÑOL — comentada para mostrar solo la versión en inglés.
-Para reactivarla, mueve el cierre `-->` que hay al final del bloque.
-======================================================================
+
 
 <h1 align="center">Martos Arregla — Panel de administración</h1>
 
