@@ -77,8 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Solo actualizamos el estado. La redirección la dispara el
+      // useEffect de LoginPage cuando detecta que `user` cambió.
+      // Hacer router.push aquí mismo provoca una race condition:
+      // Next.js renderiza /dashboard antes de que el setUser se haya
+      // propagado, AdminLayout ve user=null y te devuelve al login.
       setUser(loggedUser);
-      router.push('/dashboard');
     } catch (err: unknown) {
       // Extraer el mensaje de error del backend (si existe)
       if (err && typeof err === 'object' && 'response' in err) {
